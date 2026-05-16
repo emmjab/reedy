@@ -197,6 +197,7 @@ model BookClubBook {
   id               String    @id @default(cuid())
   clubId           String
   bookId           String
+  isCurrent        Boolean   @default(false)
   meetingDate      DateTime?
   selectedByUserId String?
   addedAt          DateTime  @default(now())
