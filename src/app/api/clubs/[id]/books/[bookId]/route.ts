@@ -29,21 +29,23 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const { isCurrent, meetingDate } = parsed.data;
 
-  // Setting a new current book: clear the previous one first
-  if (isCurrent) {
-    await db.$transaction([
-      db.bookClubBook.updateMany({ where: { clubId, isCurrent: true }, data: { isCurrent: false } }),
-      db.bookClubBook.update({ where: { clubId_bookId: { clubId, bookId } }, data: { isCurrent: true } }),
-    ]);
-  }
+  const updated = await db.$transaction(async (tx) => {
+    // Clear previous current book before setting a new one
+    if (isCurrent) {
+      await tx.bookClubBook.updateMany({
+        where: { clubId, isCurrent: true },
+        data: { isCurrent: false },
+      });
+    }
 
-  const updated = await db.bookClubBook.update({
-    where: { clubId_bookId: { clubId, bookId } },
-    data: {
-      ...(isCurrent !== undefined ? { isCurrent } : {}),
-      ...(meetingDate !== undefined ? { meetingDate: meetingDate ? new Date(meetingDate) : null } : {}),
-    },
-    include: { book: { include: { authors: { include: { author: true } } } } },
+    return tx.bookClubBook.update({
+      where: { clubId_bookId: { clubId, bookId } },
+      data: {
+        ...(isCurrent !== undefined && { isCurrent }),
+        ...(meetingDate !== undefined && { meetingDate: meetingDate ? new Date(meetingDate) : null }),
+      },
+      include: { book: { include: { authors: { include: { author: true } } } } },
+    });
   });
 
   return NextResponse.json(updated);
