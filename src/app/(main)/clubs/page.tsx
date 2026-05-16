@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ClubCard } from "@/components/clubs/ClubCard";
+import { JoinClubButton } from "@/components/clubs/JoinClubButton";
 import { Button } from "@/components/ui/button";
 
 export default async function ClubsPage() {
@@ -45,7 +46,9 @@ export default async function ClubsPage() {
         <section className="mt-10">
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Discover clubs</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {publicClubs.map((club) => <ClubCard key={club.id} club={club} />)}
+            {publicClubs.map((club) => (
+              <ClubCard key={club.id} club={club} action={<JoinClubButton clubId={club.id} />} />
+            ))}
           </div>
         </section>
       )}
