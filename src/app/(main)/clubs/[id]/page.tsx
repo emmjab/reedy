@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { BookCard } from "@/components/books/BookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ClubActions } from "@/components/clubs/ClubActions";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ id: string }> };
@@ -50,7 +51,7 @@ export default async function ClubPage({ params }: Props) {
   const myMembership = club.members.find((m) => m.userId === session.user!.id);
   if (!club.isPublic && !myMembership) redirect("/clubs");
 
-  const isAdmin = myMembership?.role === "OWNER" || myMembership?.role === "ADMIN";
+  const isOwner = myMembership?.role === "OWNER";
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -64,26 +65,31 @@ export default async function ClubPage({ params }: Props) {
             <span>{club._count.books} books</span>
           </div>
         </div>
-        <div className="flex gap-2">
-          {!myMembership && club.isPublic && (
-            <form action={async () => {
-              "use server";
-              await fetch(`/api/clubs/${id}/members`, { method: "POST" });
-            }}>
-              <Button size="sm">Join club</Button>
-            </form>
+        <div className="flex items-center gap-2">
+          {myMembership && (
+            <Badge variant={isOwner ? "info" : "default"}>
+              {myMembership.role.charAt(0) + myMembership.role.slice(1).toLowerCase()}
+            </Badge>
           )}
-          {myMembership && <Badge variant="info">{myMembership.role}</Badge>}
+          <ClubActions
+            clubId={id}
+            isMember={!!myMembership}
+            isOwner={isOwner}
+            isPublic={club.isPublic}
+          />
         </div>
       </div>
 
       <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
-        {/* Books */}
+        {/* Main column */}
         <div>
+          {/* Books */}
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-800">Reading list</h2>
             {myMembership && (
-              <Link href={`/search?clubId=${id}`}><Button size="sm" variant="secondary">+ Add book</Button></Link>
+              <Link href={`/search?clubId=${id}`}>
+                <Button size="sm" variant="secondary">+ Add book</Button>
+              </Link>
             )}
           </div>
           {club.books.length > 0 ? (
@@ -91,11 +97,14 @@ export default async function ClubPage({ params }: Props) {
               {club.books.map((cb) => (
                 <div key={cb.id}>
                   <BookCard book={cb.book} />
-                  {cb.meetingDate && (
-                    <p className="mt-1 ml-3 text-xs text-gray-400">
-                      Meeting: {new Date(cb.meetingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                    </p>
-                  )}
+                  <div className="mt-1 ml-3 flex gap-3 text-xs text-gray-400">
+                    {cb.selectedBy && <span>Added by {cb.selectedBy.name}</span>}
+                    {cb.meetingDate && (
+                      <span>
+                        Meeting: {new Date(cb.meetingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -108,13 +117,19 @@ export default async function ClubPage({ params }: Props) {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">Discussions</h2>
               {myMembership && (
-                <Link href={`/clubs/${id}/discussions/new`}><Button size="sm" variant="secondary">+ New thread</Button></Link>
+                <Link href={`/clubs/${id}/discussions/new`}>
+                  <Button size="sm" variant="secondary">+ New thread</Button>
+                </Link>
               )}
             </div>
             {club.discussions.length > 0 ? (
               <div className="space-y-3">
                 {club.discussions.map((d) => (
-                  <Link key={d.id} href={`/clubs/${id}/discussions/${d.id}`} className="block rounded-lg border border-gray-200 bg-white p-4 hover:shadow-sm transition-shadow">
+                  <Link
+                    key={d.id}
+                    href={`/clubs/${id}/discussions/${d.id}`}
+                    className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm"
+                  >
                     <p className="font-medium text-gray-900">{d.title}</p>
                     <p className="mt-0.5 text-sm text-gray-500">
                       {d.user.name} · {d._count.comments} {d._count.comments === 1 ? "reply" : "replies"} ·{" "}
@@ -124,7 +139,14 @@ export default async function ClubPage({ params }: Props) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No discussions yet. Start one!</p>
+              <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
+                <p className="text-sm text-gray-500">No discussions yet.</p>
+                {myMembership && (
+                  <Link href={`/clubs/${id}/discussions/new`} className="mt-3 inline-block">
+                    <Button size="sm">Start one</Button>
+                  </Link>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -134,7 +156,7 @@ export default async function ClubPage({ params }: Props) {
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Members</h2>
           <div className="space-y-3">
             {club.members.map((m) => (
-              <div key={m.userId} className="flex items-center gap-3">
+              <Link key={m.userId} href={`/profile/${m.user.username ?? m.userId}`} className="flex items-center gap-3 hover:opacity-80">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-medium text-brand-700">
                   {m.user.name?.[0]?.toUpperCase() ?? "?"}
                 </div>
@@ -144,7 +166,7 @@ export default async function ClubPage({ params }: Props) {
                     <p className="text-xs text-gray-400 capitalize">{m.role.toLowerCase()}</p>
                   )}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

@@ -2,7 +2,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ReadingStatusSelect } from "@/components/books/ReadingStatusSelect";
+import { ShelfPanel } from "@/components/books/ShelfPanel";
+import { AddToClub } from "@/components/books/AddToClub";
 import { LibraryAvailability } from "@/components/books/LibraryAvailability";
 import type { Metadata } from "next";
 
@@ -36,7 +37,7 @@ export default async function BookPage({ params }: Props) {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="grid grid-cols-1 gap-10 md:grid-cols-[200px_1fr]">
         {/* Cover */}
-        <div className="relative h-72 w-48 overflow-hidden rounded-xl bg-gray-100 shadow-md md:h-72 md:w-48">
+        <div className="relative h-72 w-48 overflow-hidden rounded-xl bg-gray-100 shadow-md">
           {book.coverUrl ? (
             <Image src={book.coverUrl} alt={book.title} fill className="object-cover" sizes="200px" priority />
           ) : (
@@ -51,9 +52,14 @@ export default async function BookPage({ params }: Props) {
           {authorNames && <p className="mt-2 text-base text-gray-700">by {authorNames}</p>}
           {book.firstPublishYear && <p className="mt-1 text-sm text-gray-400">First published {book.firstPublishYear}</p>}
 
-          <div className="mt-6">
-            <ReadingStatusSelect bookId={id} current={userBook} />
-          </div>
+          {session?.user ? (
+            <div className="mt-8 space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-5">
+              <ShelfPanel bookId={id} initialUserBook={userBook} />
+              <AddToClub bookId={id} />
+            </div>
+          ) : (
+            <p className="mt-6 text-sm text-gray-400">Sign in to track this book</p>
+          )}
 
           {book.description && (
             <div className="mt-8">

@@ -132,11 +132,20 @@ enum ReadingStatus {
   ABANDONED
 }
 
+enum BookRating {
+  GREAT
+  GOOD
+  OK
+  MEH
+  EH
+  SO_BAD
+}
+
 model UserBook {
   userId     String
   bookId     String
   status     ReadingStatus
-  rating     Int?
+  rating     BookRating?
   notes      String?       @db.Text
   startedAt  DateTime?
   finishedAt DateTime?

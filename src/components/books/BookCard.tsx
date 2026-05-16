@@ -10,6 +10,15 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "succe
   ABANDONED: { label: "Abandoned", variant: "default" },
 };
 
+const RATING_LABELS: Record<string, string> = {
+  GREAT: "great!",
+  GOOD: "good",
+  OK: "ok",
+  MEH: "meh",
+  EH: "eh...",
+  SO_BAD: "so bad",
+};
+
 interface BookCardProps {
   book: BookWithAuthors;
   userBook?: UserBook | null;
@@ -18,6 +27,7 @@ interface BookCardProps {
 export function BookCard({ book, userBook }: BookCardProps) {
   const authorNames = book.authors.map((ba) => ba.author.name).join(", ");
   const statusInfo = userBook ? STATUS_LABELS[userBook.status] : null;
+  const ratingLabel = userBook?.rating ? RATING_LABELS[userBook.rating] : null;
 
   return (
     <Link href={`/books/${book.id}`} className="group flex gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md">
@@ -41,9 +51,7 @@ export function BookCard({ book, userBook }: BookCardProps) {
         </div>
         <div className="flex items-center gap-2">
           {statusInfo && <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>}
-          {userBook?.rating && (
-            <span className="text-sm text-yellow-500">{"★".repeat(userBook.rating)}{"☆".repeat(5 - userBook.rating)}</span>
-          )}
+          {ratingLabel && <span className="text-xs text-gray-500 italic">{ratingLabel}</span>}
         </div>
       </div>
     </Link>

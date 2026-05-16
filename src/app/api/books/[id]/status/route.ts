@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ReadingStatus } from "@prisma/client";
+import { ReadingStatus, BookRating } from "@prisma/client";
 
 const schema = z.object({
   status: z.nativeEnum(ReadingStatus),
-  rating: z.number().int().min(1).max(5).optional().nullable(),
+  rating: z.nativeEnum(BookRating).optional().nullable(),
   notes: z.string().max(5000).optional().nullable(),
   startedAt: z.string().datetime().optional().nullable(),
   finishedAt: z.string().datetime().optional().nullable(),
