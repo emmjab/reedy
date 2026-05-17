@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookSearch } from "@/components/books/BookSearch";
 import type { BookSearchResult } from "@/types";
 
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const clubId = searchParams.get("clubId");
@@ -34,9 +34,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Find a book</h1>
-      <p className="mb-8 text-sm text-gray-500">Search millions of books from Open Library and Google Books</p>
+    <>
       <BookSearch
         onSelect={handleSelect}
         placeholder="Title, author, or ISBN..."
@@ -45,6 +43,18 @@ export default function SearchPage() {
       {selected && (
         <p className="mt-4 text-sm text-gray-500">Loading {selected.title}...</p>
       )}
+    </>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-12">
+      <h1 className="mb-2 text-2xl font-bold text-gray-900">Find a book</h1>
+      <p className="mb-8 text-sm text-gray-500">Search millions of books from Open Library and Google Books</p>
+      <Suspense>
+        <SearchContent />
+      </Suspense>
     </div>
   );
 }
