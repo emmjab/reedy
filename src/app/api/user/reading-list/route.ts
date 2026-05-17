@@ -9,11 +9,15 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status") as ReadingStatus | null;
+  const statusesParam = searchParams.get("statuses");
+  const statuses = statusesParam
+    ? (statusesParam.split(",") as ReadingStatus[])
+    : statusParam ? [statusParam] : null;
 
   const userBooks = await db.userBook.findMany({
     where: {
       userId: session.user.id!,
-      ...(statusParam ? { status: statusParam } : {}),
+      ...(statuses ? { status: { in: statuses } } : {}),
     },
     include: {
       book: {
