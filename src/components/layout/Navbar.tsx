@@ -1,10 +1,27 @@
 import Link from "next/link";
 import Image from "next/image";
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
+import { SignOutButton } from "@/components/layout/SignOutButton";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export async function Navbar() {
   const session = await auth();
+
+  const userId = session?.user?.id;
+  const [friendRequests, transfers] = userId
+    ? await Promise.all([
+        db.friendship.findMany({
+          where: { toUserId: userId, status: "PENDING" },
+          select: { id: true, fromUser: { select: { id: true, name: true, username: true } } },
+        }),
+        db.clubOwnershipTransfer.findMany({
+          where: { toUserId: userId, status: "PENDING" },
+          select: { id: true, club: { select: { id: true, name: true } }, fromUser: { select: { name: true } } },
+        }),
+      ])
+    : [[], []];
 
   return (
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur-sm">
@@ -17,8 +34,11 @@ export async function Navbar() {
         {session ? (
           <div className="flex items-center gap-3">
             <Link href="/search" className="hidden text-sm text-gray-600 hover:text-gray-900 sm:block">Search</Link>
-            <Link href="/clubs" className="hidden text-sm text-gray-600 hover:text-gray-900 sm:block">Clubs</Link>
-            <Link href="/dashboard">
+            <Link href="/shelf" className="hidden text-sm text-gray-600 hover:text-gray-900 sm:block">Shelf</Link>
+            <Link href="/clubs" className="hidden text-sm text-gray-600 hover:text-gray-900 sm:block">Book Clubs</Link>
+            <Link href="/friends" className="hidden text-sm text-gray-600 hover:text-gray-900 sm:block">Friends</Link>
+            <NotificationBell friendRequests={friendRequests} transfers={transfers} />
+            <Link href="/profile">
               {session.user?.image ? (
                 <Image src={session.user.image} alt="" width={32} height={32} className="rounded-full" />
               ) : (
@@ -27,9 +47,7 @@ export async function Navbar() {
                 </div>
               )}
             </Link>
-            <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
-              <button type="submit" className="text-sm text-gray-500 hover:text-gray-800">Sign out</button>
-            </form>
+            <SignOutButton />
           </div>
         ) : (
           <div className="flex items-center gap-3">
