@@ -132,7 +132,7 @@ export function ShelfPanel({ bookId, initialUserBook }: ShelfPanelProps) {
             <input
               type="date"
               value={userBook?.startedAt ? new Date(userBook.startedAt).toISOString().slice(0, 10) : ""}
-              onChange={(e) => update({ startedAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+              onChange={(e) => update({ startedAt: e.target.value ? new Date(e.target.value) : null })}
               className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -142,7 +142,7 @@ export function ShelfPanel({ bookId, initialUserBook }: ShelfPanelProps) {
               <input
                 type="date"
                 value={userBook?.finishedAt ? new Date(userBook.finishedAt).toISOString().slice(0, 10) : ""}
-                onChange={(e) => update({ finishedAt: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                onChange={(e) => update({ finishedAt: e.target.value ? new Date(e.target.value) : null })}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
