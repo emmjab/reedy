@@ -10,6 +10,24 @@ const addBookSchema = z.object({
   meetingDate: z.string().datetime().optional(),
 });
 
+export async function GET(_req: Request, { params }: Params) {
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: clubId } = await params;
+
+  const books = await db.bookClubBook.findMany({
+    where: { clubId },
+    select: { book: { select: { openLibraryWorkId: true, googleBooksId: true } } },
+  });
+
+  const externalIds = books.flatMap(({ book }) =>
+    [book.openLibraryWorkId, book.googleBooksId].filter(Boolean)
+  );
+
+  return NextResponse.json(externalIds);
+}
+
 export async function POST(req: Request, { params }: Params) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,10 +69,20 @@ export async function DELETE(req: Request, { params }: Params) {
   const bookId = searchParams.get("bookId");
   if (!bookId) return NextResponse.json({ error: "bookId required" }, { status: 400 });
 
-  const membership = await db.bookClubMember.findUnique({
-    where: { clubId_userId: { clubId, userId: session.user.id! } },
-  });
-  if (!membership || (membership.role === "MEMBER")) {
+  const [membership, clubBook] = await Promise.all([
+    db.bookClubMember.findUnique({
+      where: { clubId_userId: { clubId, userId: session.user.id! } },
+    }),
+    db.bookClubBook.findUnique({
+      where: { clubId_bookId: { clubId, bookId } },
+      select: { selectedByUserId: true, isQueued: true, isCurrent: true },
+    }),
+  ]);
+
+  const isAdmin = membership?.role === "OWNER" || membership?.role === "ADMIN";
+  const isOwnSuggestion = clubBook?.selectedByUserId === session.user.id! && !clubBook?.isQueued && !clubBook?.isCurrent;
+
+  if (!membership || (!isAdmin && !isOwnSuggestion)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
