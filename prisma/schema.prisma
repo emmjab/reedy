@@ -21,13 +21,22 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts        Account[]
-  sessions        Session[]
-  userBooks       UserBook[]
-  clubMemberships BookClubMember[]
-  selectedBooks   BookClubBook[]   @relation("SelectedBy")
-  discussions     ClubDiscussion[]
-  comments        ClubComment[]
+  friendsCanSeeReading Boolean @default(true)
+  friendsCanSeeRead    Boolean @default(true)
+  friendsCanSeeWantTo  Boolean @default(true)
+  friendsCanSeeClubs   Boolean @default(true)
+
+  accounts             Account[]
+  sessions             Session[]
+  userBooks            UserBook[]
+  clubMemberships      BookClubMember[]
+  selectedBooks        BookClubBook[]          @relation("SelectedBy")
+  discussions          ClubDiscussion[]
+  comments             ClubComment[]
+  transfersInitiated   ClubOwnershipTransfer[] @relation("TransferFrom")
+  transfersReceived    ClubOwnershipTransfer[] @relation("TransferTo")
+  friendsSent          Friendship[]            @relation("FriendshipFrom")
+  friendsReceived      Friendship[]            @relation("FriendshipTo")
 }
 
 model Account {
@@ -163,16 +172,20 @@ model UserBook {
 // ── Book clubs ────────────────────────────────────────────────────────────
 
 model BookClub {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  description String?  @db.Text
-  isPublic    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?   @db.Text
+  isPublic    Boolean   @default(true)
+  isArchived  Boolean   @default(false)
+  archivedAt  DateTime?
+  defaultRole ClubRole  @default(MEMBER)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   members     BookClubMember[]
   books       BookClubBook[]
   discussions ClubDiscussion[]
+  transfers   ClubOwnershipTransfer[]
 }
 
 enum ClubRole {
@@ -198,7 +211,11 @@ model BookClubBook {
   clubId           String
   bookId           String
   isCurrent        Boolean   @default(false)
+  isQueued         Boolean   @default(false)
+  queueOrder       Int?
   meetingDate      DateTime?
+  completedAt      DateTime?
+  notes            String?   @db.Text
   selectedByUserId String?
   addedAt          DateTime  @default(now())
 
@@ -233,6 +250,53 @@ model ClubComment {
 
   discussion ClubDiscussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
   user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ── Friends ────────────────────────────────────────────────────────────────
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id         String           @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  fromUser User @relation("FriendshipFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User @relation("FriendshipTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@unique([fromUserId, toUserId])
+  @@index([toUserId, status])
+}
+
+// ── Ownership transfers ────────────────────────────────────────────────────
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model ClubOwnershipTransfer {
+  id         String         @id @default(cuid())
+  clubId     String
+  fromUserId String
+  toUserId   String
+  leaveAfter Boolean        @default(true)
+  status     TransferStatus @default(PENDING)
+  createdAt  DateTime       @default(now())
+
+  club     BookClub @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  fromUser User     @relation("TransferFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser   User     @relation("TransferTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([clubId])
+  @@index([toUserId, status])
 }
 
 // ── Library availability ──────────────────────────────────────────────────
