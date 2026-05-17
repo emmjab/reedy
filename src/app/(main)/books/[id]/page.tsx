@@ -31,7 +31,7 @@ export default async function BookPage({ params }: Props) {
       })
     : null;
 
-  const authorNames = book.authors.map((ba) => ba.author.name).join(", ");
+  const authorNames = [...new Set(book.authors.map((ba) => ba.author.name))].join(", ");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
