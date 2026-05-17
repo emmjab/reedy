@@ -80,7 +80,7 @@ export function AddSuggestion({ clubId, existingBookIds }: AddSuggestionProps) {
       </Button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white shadow-lg">
           {visibleBooks.length > 0 ? (
             <>
               <p className="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">

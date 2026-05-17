@@ -57,7 +57,7 @@ export function AddToClub({ bookId }: AddToClubProps) {
         + Suggest to book club
       </Button>
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-gray-200 bg-white shadow-lg">
+        <div className="absolute left-0 top-full z-20 mt-1 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-gray-200 bg-white shadow-lg">
           <p className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Your book clubs</p>
           <ul className="pb-2">
             {clubs.map((club) => (

@@ -73,7 +73,7 @@ export function NotificationBell({ friendRequests, transfers }: NotificationBell
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 z-50 w-80 rounded-xl border border-gray-200 bg-white shadow-lg">
+        <div className="absolute right-0 top-10 z-50 w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white shadow-lg sm:w-80">
           <div className="border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold text-gray-900">Notifications</p>
           </div>
