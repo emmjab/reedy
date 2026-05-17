@@ -172,7 +172,7 @@ export function SuggestionsPanel({
                       {book.authors.length > 0 && (
                         <p className="text-sm text-gray-500 line-clamp-1">{book.authors.join(", ")}</p>
                       )}
-                      <p className="mt-0.5 text-xs text-gray-400">
+                      <p className="mt-0.5 text-xs text-gray-400" suppressHydrationWarning>
                         Suggested{book.suggestedByName ? ` by ${book.suggestedByName}` : ""}{" "}
                         · {new Date(book.addedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                       </p>

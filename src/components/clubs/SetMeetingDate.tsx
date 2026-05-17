@@ -30,7 +30,7 @@ export function SetMeetingDate({ clubId, bookId, currentDate }: SetMeetingDatePr
 
   if (!editing) {
     return (
-      <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
+      <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800" suppressHydrationWarning>
         <span>📅</span>
         {currentDate
           ? new Date(currentDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
