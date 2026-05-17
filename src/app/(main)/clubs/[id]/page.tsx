@@ -7,8 +7,18 @@ import { BookCard } from "@/components/books/BookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ClubActions } from "@/components/clubs/ClubActions";
+import { OwnerActions } from "@/components/clubs/OwnerActions";
 import { SetCurrentBook } from "@/components/clubs/SetCurrentBook";
 import { SetMeetingDate } from "@/components/clubs/SetMeetingDate";
+import { MarkCompleted } from "@/components/clubs/MarkCompleted";
+import { ClubBookNotes } from "@/components/clubs/ClubBookNotes";
+import { SetMatchedBookCurrent } from "@/components/clubs/SetMatchedBookCurrent";
+import { QueuePanel } from "@/components/clubs/QueuePanel";
+import { RestoreBook } from "@/components/clubs/RestoreBook";
+import { SuggestionsPanel } from "@/components/clubs/SuggestionsPanel";
+import { ClubSettings } from "@/components/clubs/ClubSettings";
+import { RemoveMember } from "@/components/clubs/RemoveMember";
+import { SetMemberRole } from "@/components/clubs/SetMemberRole";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ id: string }> };
@@ -45,14 +55,7 @@ export default async function ClubPage({ params }: Props) {
         },
         orderBy: { addedAt: "desc" },
       },
-      discussions: {
-        include: {
-          user: { select: { id: true, name: true } },
-          _count: { select: { comments: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      _count: { select: { members: true, books: true, discussions: true } },
+      _count: { select: { members: true, books: true } },
     },
   });
 
@@ -65,15 +68,60 @@ export default async function ClubPage({ params }: Props) {
   const isOwner = myMembership?.role === "OWNER";
   const memberIds = club.members.map((m) => m.userId);
 
+  const pendingTransfer = isOwner
+    ? await db.clubOwnershipTransfer.findFirst({
+        where: { clubId: id, fromUserId: session.user!.id, status: "PENDING" },
+        select: { id: true, leaveAfter: true, toUser: { select: { name: true } } },
+      })
+    : null;
+
   // Separate current, past, and queued books
   const currentBook = club.books.find((b) => b.isCurrent) ?? null;
   const now = new Date();
   const pastBooks = club.books.filter(
-    (b) => !b.isCurrent && b.meetingDate && new Date(b.meetingDate) < now
-  ).sort((a, b) => new Date(b.meetingDate!).getTime() - new Date(a.meetingDate!).getTime());
-  const queuedBooks = club.books.filter(
-    (b) => !b.isCurrent && !(b.meetingDate && new Date(b.meetingDate) < now)
-  );
+    (b) => !b.isCurrent && (
+      b.completedAt !== null ||
+      (b.meetingDate && new Date(b.meetingDate) < now)
+    )
+  ).sort((a, b) => {
+    const aDate = b.completedAt ?? b.meetingDate;
+    const bDate = a.completedAt ?? a.meetingDate;
+    return new Date(aDate!).getTime() - new Date(bDate!).getTime();
+  });
+  const notCurrentNotPast = (b: (typeof club.books)[0]) =>
+    !b.isCurrent && !b.completedAt && !(b.meetingDate && new Date(b.meetingDate) < now);
+  const queuedBooks = club.books
+    .filter((b) => notCurrentNotPast(b) && b.isQueued)
+    .sort((a, b) => {
+      if (a.queueOrder == null && b.queueOrder == null) return 0;
+      if (a.queueOrder == null) return 1;
+      if (b.queueOrder == null) return -1;
+      return a.queueOrder - b.queueOrder;
+    });
+  const suggestedBooks = club.books.filter((b) => notCurrentNotPast(b) && !b.isQueued);
+
+  // Suggestion by match — books on 2+ members' want-to-read lists, not already in club
+  const clubBookIds = new Set(club.books.map((b) => b.bookId));
+  const memberWantToRead = await db.userBook.findMany({
+    where: {
+      userId: { in: memberIds },
+      status: "WANT_TO_READ",
+      bookId: { notIn: [...clubBookIds] },
+    },
+    include: {
+      book: { include: { authors: { include: { author: true } } } },
+      user: { select: { id: true, name: true } },
+    },
+  });
+
+  const bookMatchMap = new Map<string, { book: (typeof memberWantToRead)[0]["book"]; members: Array<{ id: string; name: string | null }> }>();
+  for (const ub of memberWantToRead) {
+    if (!bookMatchMap.has(ub.bookId)) bookMatchMap.set(ub.bookId, { book: ub.book, members: [] });
+    bookMatchMap.get(ub.bookId)!.members.push({ id: ub.userId, name: ub.user.name });
+  }
+  const matchedBooks = [...bookMatchMap.values()]
+    .filter((m) => m.members.length >= 2)
+    .sort((a, b) => b.members.length - a.members.length);
 
   // Who's reading the current book
   const participants = currentBook
@@ -103,7 +151,17 @@ export default async function ClubPage({ params }: Props) {
               {myMembership.role.charAt(0) + myMembership.role.slice(1).toLowerCase()}
             </Badge>
           )}
-          <ClubActions clubId={id} isMember={!!myMembership} isOwner={isOwner} isPublic={club.isPublic} />
+          {isOwner ? (
+            <OwnerActions
+              clubId={id}
+              pendingTransfer={pendingTransfer}
+              otherMembers={club.members
+                .filter((m) => m.userId !== session.user!.id)
+                .map((m) => ({ userId: m.userId, name: m.user.name }))}
+            />
+          ) : (
+            <ClubActions clubId={id} isMember={!!myMembership} isOwner={false} isPublic={club.isPublic} />
+          )}
         </div>
       </div>
 
@@ -111,9 +169,9 @@ export default async function ClubPage({ params }: Props) {
         {/* Main column */}
         <div className="space-y-10">
 
-          {/* ── Current read ── */}
+          {/* ── Current book ── */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold text-gray-800">Current Read</h2>
+            <h2 className="mb-4 text-lg font-semibold text-gray-800">Current Book</h2>
             {currentBook ? (
               <div className="rounded-2xl border border-brand-200 bg-brand-50 p-6">
                 <div className="flex gap-5">
@@ -132,7 +190,7 @@ export default async function ClubPage({ params }: Props) {
                       {currentBook.book.title}
                     </Link>
                     <p className="mt-0.5 text-sm text-gray-500">
-                      {currentBook.book.authors.map((a) => a.author.name).join(", ")}
+                      {[...new Set(currentBook.book.authors.map((a) => a.author.name))].join(", ")}
                     </p>
 
                     <div className="mt-3">
@@ -149,17 +207,23 @@ export default async function ClubPage({ params }: Props) {
                     </div>
 
                     {isAdmin && (
-                      <div className="mt-3">
-                        <SetCurrentBook clubId={id} bookId={currentBook.bookId} isCurrent={true} />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <SetCurrentBook clubId={id} bookId={currentBook.bookId} isCurrent={true} currentBook={null} />
+                        <MarkCompleted clubId={id} bookId={currentBook.bookId} />
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Club notes */}
+                {myMembership && (
+                  <ClubBookNotes clubId={id} bookId={currentBook.bookId} initialNotes={currentBook.notes} />
+                )}
+
                 {/* Who's participating */}
                 <div className="mt-6 border-t border-brand-100 pt-5">
                   <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Who's reading ({participants.length}/{club.members.length})
+                    Who's interested ({participants.length}/{club.members.length})
                   </p>
                   <div className="flex flex-wrap gap-3">
                     {club.members.map((m) => {
@@ -184,14 +248,12 @@ export default async function ClubPage({ params }: Props) {
               </div>
             ) : (
               <div className="rounded-2xl border-2 border-dashed border-gray-200 p-8 text-center">
-                <p className="text-gray-500">No current read selected.</p>
-                {isAdmin && queuedBooks.length > 0 && (
-                  <p className="mt-1 text-sm text-gray-400">Pick one from the queue below.</p>
-                )}
-                {myMembership && (
-                  <Link href={`/search?clubId=${id}`} className="mt-4 inline-block">
-                    <Button size="sm">Add a book</Button>
-                  </Link>
+                <p className="text-gray-500">No current book selected.</p>
+                {isAdmin && (
+                  <p className="mt-1 text-sm text-gray-400">
+                    Pick one from the queue or suggestions below, or{" "}
+                    <Link href={`/search?clubId=${id}`} className="text-brand-600 hover:underline">add a book</Link>.
+                  </p>
                 )}
               </div>
             )}
@@ -200,88 +262,140 @@ export default async function ClubPage({ params }: Props) {
           {/* ── Queue ── */}
           {(queuedBooks.length > 0 || isAdmin) && (
             <section>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-800">Up Next</h2>
-                {myMembership && (
-                  <Link href={`/search?clubId=${id}`}>
-                    <Button size="sm" variant="secondary">+ Add book</Button>
-                  </Link>
-                )}
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Queue</h2>
+                <p className="mt-0.5 text-sm text-gray-400">
+                  Next up, in order.{queuedBooks.length === 0 && " No books in the queue yet. Add one from suggestions below."}
+                </p>
               </div>
-              {queuedBooks.length > 0 ? (
-                <div className="space-y-3">
-                  {queuedBooks.map((cb) => (
-                    <div key={cb.id} className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <BookCard book={cb.book} />
-                      </div>
-                      {isAdmin && (
-                        <div className="shrink-0">
-                          <SetCurrentBook clubId={id} bookId={cb.bookId} isCurrent={false} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">Nothing queued yet.</p>
-              )}
+              <QueuePanel
+                clubId={id}
+                books={queuedBooks.map((cb) => ({
+                  bookId: cb.bookId,
+                  title: cb.book.title,
+                  coverUrl: cb.book.coverUrl,
+                  authors: [...new Set(cb.book.authors.map((a) => a.author.name))],
+                  addedAt: cb.addedAt.toISOString(),
+                  suggestedByName: cb.selectedBy?.name ?? null,
+                }))}
+                isAdmin={isAdmin}
+                currentBook={currentBook ? { bookId: currentBook.bookId, title: currentBook.book.title } : null}
+              />
             </section>
           )}
 
-          {/* ── Past reads ── */}
-          {pastBooks.length > 0 && (
+          {/* ── Suggestions ── */}
+          {(suggestedBooks.length > 0 || !!myMembership) && (
             <section>
-              <h2 className="mb-4 text-lg font-semibold text-gray-800">Past Reads</h2>
-              <div className="space-y-3">
-                {pastBooks.map((cb) => (
-                  <div key={cb.id}>
-                    <BookCard book={cb.book} />
-                    <p className="mt-1 ml-3 text-xs text-gray-400">
-                      Met {new Date(cb.meetingDate!).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                    </p>
+              <h2 className="mb-4 text-lg font-semibold text-gray-800">Suggestions</h2>
+              <SuggestionsPanel
+                clubId={id}
+                books={suggestedBooks.map((cb) => ({
+                  bookId: cb.bookId,
+                  title: cb.book.title,
+                  coverUrl: cb.book.coverUrl,
+                  authors: [...new Set(cb.book.authors.map((a) => a.author.name))],
+                  addedAt: cb.addedAt.toISOString(),
+                  suggestedById: cb.selectedBy?.id ?? null,
+                  suggestedByName: cb.selectedBy?.name ?? null,
+                }))}
+                isAdmin={isAdmin}
+                isMember={!!myMembership}
+                currentUserId={session.user!.id!}
+                currentBook={currentBook ? { bookId: currentBook.bookId, title: currentBook.book.title } : null}
+                existingBookIds={club.books.map((b) => b.bookId)}
+              />
+            </section>
+          )}
+
+          {/* ── Suggestion by match ── */}
+          <section>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">Suggestion by Match</h2>
+              <p className="mt-0.5 text-sm text-gray-400">
+                Books on multiple members' want-to-read lists.{matchedBooks.length === 0 && " No books in common among members yet."}
+              </p>
+            </div>
+            {matchedBooks.length > 0 ? (
+              <div className="space-y-4">
+                {matchedBooks.map(({ book, members }) => (
+                  <div key={book.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="flex gap-4">
+                      {book.coverUrl ? (
+                        <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100 shadow-sm">
+                          <Image src={book.coverUrl} alt={book.title} fill className="object-cover" sizes="56px" />
+                        </div>
+                      ) : (
+                        <div className="flex h-20 w-14 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-2xl">📚</div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <Link href={`/books/${book.id}`} className="font-semibold text-gray-900 hover:text-brand-700 line-clamp-2">
+                          {book.title}
+                        </Link>
+                        <p className="mt-0.5 text-sm text-gray-500">
+                          {[...new Set(book.authors.map((a) => a.author.name))].join(", ")}
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-medium text-brand-700 bg-brand-50 rounded-full px-2 py-0.5">
+                            {members.length}/{club.members.length} members
+                          </span>
+                          {members.map((m) => (
+                            <span key={m.id} className="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                              {m.name ?? "Unknown"}
+                            </span>
+                          ))}
+                        </div>
+                        {isAdmin && (
+                          <div className="mt-3">
+                            <SetMatchedBookCurrent clubId={id} bookId={book.id} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
-            </section>
-          )}
+            ) : null}
+          </section>
 
-          {/* ── Discussions ── */}
+          {/* ── Past reads ── */}
           <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800">Discussions</h2>
-              {myMembership && (
-                <Link href={`/clubs/${id}/discussions/new`}>
-                  <Button size="sm" variant="secondary">+ New thread</Button>
-                </Link>
-              )}
-            </div>
-            {club.discussions.length > 0 ? (
+            <h2 className="mb-4 text-lg font-semibold text-gray-800">Past Reads</h2>
+            {pastBooks.length > 0 ? (
               <div className="space-y-3">
-                {club.discussions.map((d) => (
-                  <Link
-                    key={d.id}
-                    href={`/clubs/${id}/discussions/${d.id}`}
-                    className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm"
-                  >
-                    <p className="font-medium text-gray-900">{d.title}</p>
-                    <p className="mt-0.5 text-sm text-gray-500">
-                      {d.user.name} · {d._count.comments} {d._count.comments === 1 ? "reply" : "replies"} · {new Date(d.createdAt).toLocaleDateString()}
+                {pastBooks.map((cb) => (
+                  <div key={cb.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <BookCard book={cb.book} />
+                    <p className="mt-1 text-xs text-gray-400">
+                      {cb.meetingDate && new Date(cb.meetingDate) < now
+                        ? `Met ${new Date(cb.meetingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+                        : `Completed ${new Date(cb.completedAt!).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
                     </p>
-                  </Link>
+                    {myMembership && (
+                      <ClubBookNotes clubId={id} bookId={cb.bookId} initialNotes={cb.notes} />
+                    )}
+                    {isAdmin && (
+                      <div className="mt-2">
+                        <RestoreBook
+                          clubId={id}
+                          bookId={cb.bookId}
+                          currentBook={currentBook ? { bookId: currentBook.bookId, title: currentBook.book.title } : null}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border-2 border-dashed border-gray-200 p-8 text-center">
-                <p className="text-sm text-gray-500">No discussions yet.</p>
-                {myMembership && (
-                  <Link href={`/clubs/${id}/discussions/new`} className="mt-3 inline-block">
-                    <Button size="sm">Start one</Button>
-                  </Link>
-                )}
-              </div>
+              <p className="text-sm text-gray-400">Past book club selections will appear here.</p>
             )}
           </section>
+
+          {/* ── Settings ── */}
+          {isOwner && (
+            <ClubSettings clubId={id} defaultRole={club.defaultRole} />
+          )}
+
         </div>
 
         {/* Members sidebar */}
@@ -289,17 +403,28 @@ export default async function ClubPage({ params }: Props) {
           <h2 className="mb-4 text-lg font-semibold text-gray-800">Members</h2>
           <div className="space-y-3">
             {club.members.map((m) => (
-              <Link key={m.userId} href={`/profile/${m.user.username ?? m.userId}`} className="flex items-center gap-3 hover:opacity-80">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-medium text-brand-700">
-                  {m.user.name?.[0]?.toUpperCase() ?? "?"}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{m.user.name}</p>
-                  {m.role !== "MEMBER" && (
-                    <p className="text-xs text-gray-400 capitalize">{m.role.toLowerCase()}</p>
+              <div key={m.userId} className="flex items-center gap-2">
+                <Link href={`/profile/${m.user.username ?? m.userId}`} className="shrink-0 hover:opacity-80">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-medium text-brand-700">
+                    {m.user.name?.[0]?.toUpperCase() ?? "?"}
+                  </div>
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/profile/${m.user.username ?? m.userId}`} className="hover:opacity-80">
+                    <p className="text-sm font-medium text-gray-900 truncate">{m.user.name}</p>
+                  </Link>
+                  {isOwner && m.userId !== session.user!.id ? (
+                    <SetMemberRole clubId={id} userId={m.userId} role={m.role} />
+                  ) : (
+                    m.role !== "MEMBER" && (
+                      <p className="text-xs text-gray-400 capitalize">{m.role.toLowerCase()}</p>
+                    )
                   )}
                 </div>
-              </Link>
+                {isOwner && m.userId !== session.user!.id && (
+                  <RemoveMember clubId={id} userId={m.userId} name={m.user.name} />
+                )}
+              </div>
             ))}
           </div>
         </div>
