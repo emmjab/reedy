@@ -25,7 +25,7 @@ export function JoinClubButton({ clubId }: { clubId: string }) {
 
   return (
     <Button size="sm" loading={loading} onClick={join}>
-      Join club
+      Join book club
     </Button>
   );
 }

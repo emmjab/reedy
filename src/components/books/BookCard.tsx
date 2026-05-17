@@ -6,7 +6,7 @@ import type { BookWithAuthors, UserBook } from "@/types";
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "success" | "warning" | "info" }> = {
   WANT_TO_READ: { label: "Want to Read", variant: "info" },
   READING: { label: "Reading", variant: "warning" },
-  READ: { label: "Read", variant: "success" },
+  READ: { label: "Finished", variant: "success" },
   ABANDONED: { label: "Abandoned", variant: "default" },
 };
 
@@ -25,7 +25,7 @@ interface BookCardProps {
 }
 
 export function BookCard({ book, userBook }: BookCardProps) {
-  const authorNames = book.authors.map((ba) => ba.author.name).join(", ");
+  const authorNames = [...new Set(book.authors.map((ba) => ba.author.name))].join(", ");
   const statusInfo = userBook ? STATUS_LABELS[userBook.status] : null;
   const ratingLabel = userBook?.rating ? RATING_LABELS[userBook.rating] : null;
 

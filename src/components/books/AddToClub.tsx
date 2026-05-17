@@ -54,11 +54,11 @@ export function AddToClub({ bookId }: AddToClubProps) {
   return (
     <div ref={ref} className="relative">
       <Button variant="secondary" size="sm" onClick={() => setOpen((o) => !o)}>
-        + Add to club
+        + Suggest to book club
       </Button>
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-gray-200 bg-white shadow-lg">
-          <p className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Your clubs</p>
+          <p className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Your book clubs</p>
           <ul className="pb-2">
             {clubs.map((club) => (
               <li key={club.id}>
