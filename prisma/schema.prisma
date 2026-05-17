@@ -147,8 +147,7 @@ enum BookRating {
   GOOD
   OK
   MEH
-  EH
-  SO_BAD
+  NAH
 }
 
 model UserBook {

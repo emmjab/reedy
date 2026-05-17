@@ -7,8 +7,7 @@ const RATING_LABEL: Record<string, string> = {
   GOOD: "Good",
   OK: "OK",
   MEH: "Meh",
-  EH: "Eh...",
-  SO_BAD: "So bad",
+  NAH: "Nah",
 };
 
 function escapeCell(value: string | null | undefined): string {

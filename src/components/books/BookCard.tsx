@@ -15,8 +15,7 @@ const RATING_LABELS: Record<string, string> = {
   GOOD: "good",
   OK: "ok",
   MEH: "meh",
-  EH: "eh...",
-  SO_BAD: "so bad",
+  NAH: "nah",
 };
 
 interface BookCardProps {
