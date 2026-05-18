@@ -122,7 +122,7 @@ export default async function ShelfPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">My Shelf</h1>
         <div className="flex items-center gap-3">
           <Link href="/import" className="text-sm text-gray-400 hover:text-gray-700">Import from Goodreads</Link>

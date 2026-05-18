@@ -188,12 +188,12 @@ export default function ImportPage() {
           </div>
 
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-            <div className="max-h-[480px] overflow-y-auto">
+            <div className="max-h-[480px] overflow-x-auto overflow-y-auto">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 border-b border-gray-200 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <tr>
                     <th className="px-4 py-3 text-left">Title</th>
-                    <th className="px-4 py-3 text-left">Author</th>
+                    <th className="hidden px-4 py-3 text-left sm:table-cell">Author</th>
                     <th className="px-4 py-3 text-left">Shelf</th>
                     <th className="px-4 py-3 text-left">Rating</th>
                   </tr>
@@ -201,8 +201,11 @@ export default function ImportPage() {
                 <tbody className="divide-y divide-gray-100">
                   {rows.map((row, i) => (
                     <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{row.title}</td>
-                      <td className="px-4 py-3 text-gray-500">{row.author}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {row.title}
+                        <p className="text-xs font-normal text-gray-400 sm:hidden">{row.author}</p>
+                      </td>
+                      <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">{row.author}</td>
                       <td className="px-4 py-3 text-gray-500">{STATUS_LABEL[row.status]}</td>
                       <td className="px-4 py-3 text-gray-500">{row.rating ? RATING_LABEL[row.rating] : "—"}</td>
                     </tr>
